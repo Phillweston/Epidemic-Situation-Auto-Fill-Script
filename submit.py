@@ -8,55 +8,46 @@ import sys
 import datetime
 import time
 
+h=1
+m=0
 
-def Auto_Fill():
-    # 把自动填写疫情通的程序放在这个函数里
+with open("data.json", "r") as fd:
+    data = json.load(fd)
 
-    with open("data.json", "r") as fd:
-        data = json.load(fd)
+conn = requests.Session()
 
-    conn = requests.Session()
+# Login
+result = conn.post('https://xxcapp.xidian.edu.cn/uc/wap/login/check',
+               data={'username': data['_u'], 'password': data['_p']})
+if result.status_code != 200:
+    print('认证大失败')
+    exit()
 
-    # Login
-    result = conn.post('https://xxcapp.xidian.edu.cn/uc/wap/login/check',
-                   data={'username': data['_u'], 'password': data['_p']})
-    if result.status_code != 200:
-        print('认证大失败')
-        exit()
+# Submit
+result = conn.get('https://xxcapp.xidian.edu.cn/ncov/wap/default/index')
+if result.status_code != 200:
+    print('获取页面大失败')
+    exit()
+predef = json.loads(re.search('var def = ({.*});', result.text).group(1))
 
-    # Submit
-    result = conn.get('https://xxcapp.xidian.edu.cn/ncov/wap/default/index')
-    if result.status_code != 200:
-        print('获取页面大失败')
-        exit()
-    predef = json.loads(re.search('var def = ({.*});', result.text).group(1))
+if "dump_geo" in sys.argv:
+    print(predef['geo_api_info'])
+    exit()
 
-    if "dump_geo" in sys.argv:
-        print(predef['geo_api_info'])
-        exit()
+try:
+    del predef['jrdqtlqk']
+    del predef['jrdqjcqk']
+except:
+    pass
+del data['_u']
+del data['_p']
+predef.update(data)
 
-    try:
-        del predef['jrdqtlqk']
-        del predef['jrdqjcqk']
-    except:
-        pass
-    del data['_u']
-    del data['_p']
-    predef.update(data)
-
-    result = conn.post('https://xxcapp.xidian.edu.cn/ncov/wap/default/save', data=predef)
-    print(result.text)
-
-
-
-def main(h=1,m=0):
-    while True:
-        now = datetime.datetime.now()
-        print(now.hour, now.minute)
-        if now.hour == h and now.minute == m:
-            Auto_Fill()
-        # 每隔60秒检测一次
-        time.sleep(60)
-
-
-main()
+while True:
+    now = datetime.datetime.now()
+    print(now.hour, now.minute)
+    if now.hour == h and now.minute == m:
+        result = conn.post('https://xxcapp.xidian.edu.cn/ncov/wap/default/save', data=predef)
+        print(result.text)
+    # 每隔60秒检测一次
+    time.sleep(60)
